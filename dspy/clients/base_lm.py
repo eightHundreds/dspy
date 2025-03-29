@@ -110,8 +110,11 @@ class BaseLM(ABC):
 
         return new_instance
 
-    def inspect_history(self, n: int = 1):
-        _inspect_history(self.history, n)
+    def inspect_history(self, n: int = 1, print_result: bool = True):
+        result = _inspect_history(GLOBAL_HISTORY, n)
+        if print_result:
+            print(result)
+        return result
 
     def update_global_history(self, entry):
         if settings.disable_history:
