@@ -133,25 +133,26 @@ def _blue(text: str, end: str = "\n"):
 
 
 def _inspect_history(history, n: int = 1):
-    """Prints the last n prompts and their completions."""
+    """Returns a string containing the last n prompts and their completions."""
+    result = ""
 
     for item in history[-n:]:
         messages = item["messages"] or [{"role": "user", "content": item["prompt"]}]
         outputs = item["outputs"]
         timestamp = item.get("timestamp", "Unknown time")
 
-        print("\n\n\n")
-        print("\x1b[34m" + f"[{timestamp}]" + "\x1b[0m" + "\n")
+        result += "\n\n\n"
+        result += "\x1b[34m" + f"[{timestamp}]" + "\x1b[0m" + "\n"
 
         for msg in messages:
-            print(_red(f"{msg['role'].capitalize()} message:"))
+            result += _red(f"{msg['role'].capitalize()} message:")
             if isinstance(msg["content"], str):
-                print(msg["content"].strip())
+                result += msg["content"].strip() + "\n"
             else:
                 if isinstance(msg["content"], list):
                     for c in msg["content"]:
                         if c["type"] == "text":
-                            print(c["text"].strip())
+                            result += c["text"].strip() + "\n"
                         elif c["type"] == "image_url":
                             image_str = ""
                             if "base64" in c["image_url"].get("url", ""):
@@ -159,19 +160,23 @@ def _inspect_history(history, n: int = 1):
                                 image_str = f"<{c['image_url']['url'].split('base64,')[0]}base64,<IMAGE BASE 64 ENCODED({str(len_base64)})>"
                             else:
                                 image_str = f"<image_url: {c['image_url']['url']}>"
-                            print(_blue(image_str.strip()))
-            print("\n")
+                            result += _blue(image_str.strip()) + "\n"
+            result += "\n"
 
-        print(_red("Response:"))
-        print(_green(outputs[0].strip()))
+        result += _red("Response:")
+        result += _green(outputs[0].strip())
 
         if len(outputs) > 1:
             choices_text = f" \t (and {len(outputs)-1} other completions)"
-            print(_red(choices_text, end=""))
+            result += _red(choices_text, end="")
 
-    print("\n\n\n")
+    result += "\n\n\n"
+    return result
 
 
-def inspect_history(n: int = 1):
+def inspect_history(n: int = 1, print_result: bool = True):
     """The global history shared across all LMs."""
-    return _inspect_history(GLOBAL_HISTORY, n)
+    result = _inspect_history(GLOBAL_HISTORY, n)
+    if print_result:
+        print(result)
+    return result

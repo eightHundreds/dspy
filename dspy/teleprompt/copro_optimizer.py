@@ -198,7 +198,7 @@ class COPRO(Teleprompter):
             evaluated_candidates[id(predictor)] = {}
 
         if self.prompt_model:
-            logger.debug(f"{self.prompt_model.inspect_history(n=1)}")
+            logger.debug(f"{self.prompt_model.inspect_history(n=1, print_result=False)}")
 
         latest_candidates = candidates
         all_candidates = candidates
@@ -248,7 +248,9 @@ class COPRO(Teleprompter):
                     )
                     score = evaluate(module_clone, devset=trainset, **eval_kwargs)
                     if self.prompt_model:
-                        logger.debug(f"prompt_model.inspect_history(n=1) {self.prompt_model.inspect_history(n=1)}")
+                        logger.debug(
+                            f"prompt_model.inspect_history(n=1) {self.prompt_model.inspect_history(n=1, print_result=False)}"
+                        )
                     total_calls += 1
 
                     replace_entry = True
@@ -346,7 +348,9 @@ class COPRO(Teleprompter):
                     )(attempted_instructions=attempts)
 
                 if self.prompt_model:
-                    logger.debug(f"(self.prompt_model.inspect_history(n=1)) {self.prompt_model.inspect_history(n=1)}")
+                    logger.debug(
+                        f"(self.prompt_model.inspect_history(n=1)) {self.prompt_model.inspect_history(n=1, print_result=False)}"
+                    )
                 # Get candidates for each predictor
                 new_candidates[id(p_base)] = instr.completions
                 all_candidates[id(p_base)].proposed_instruction.extend(instr.completions.proposed_instruction)
@@ -355,7 +359,7 @@ class COPRO(Teleprompter):
                 )
 
             if self.prompt_model:
-                logger.debug(f"{self.prompt_model.inspect_history(n=1)}")
+                logger.debug(f"{self.prompt_model.inspect_history(n=1, print_result=False)}")
             latest_candidates = new_candidates
 
         candidates = []
