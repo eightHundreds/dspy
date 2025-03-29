@@ -1,7 +1,8 @@
 import dspy
-from dspy import Example
+from dspy import Example, InputField, OutputField
 from dspy.teleprompt.signature_opt import COPRO
 from dspy.utils.dummies import DummyLM
+from dspy.signatures.signature import ensure_signature, Signature
 
 
 # Define a simple metric function for testing
@@ -27,10 +28,17 @@ def test_signature_optimizer_initialization():
     assert optimizer.init_temperature == 1.4, "Initial temperature not correctly initialized"
 
 
+class SimpleSignature(Signature):
+    input: str = InputField()
+    output: str = OutputField()
+
+
 class SimpleModule(dspy.Module):
     def __init__(self, signature):
         super().__init__()
         # COPRO doesn't work with dspy.Predict
+        if isinstance(signature, str):
+            signature = SimpleSignature
         self.predictor = dspy.ChainOfThought(signature)
 
     def forward(self, **kwargs):
@@ -154,3 +162,64 @@ def test_statistics_tracking_during_optimization():
     ), "Optimizer did not properly populate the latest results statistics"
 
     # Additional detailed checks can be added here to verify the contents of the tracked statistics
+
+
+class TestSignature(dspy.Signature):
+    """A simple test signature."""
+
+    input = dspy.InputField()
+    output = dspy.OutputField()
+
+
+def test_copro_with_complex_evaluation_output():
+    """Test the case when both return_outputs=True and return_all_scores=True"""
+    dspy.settings.configure(
+        lm=DummyLM(
+            {
+                # For predictions after optimization
+                "What is the color of the sky?": {
+                    "reasoning": "让我们一步一步思考。\n1. 这是一个简单的问题\n2. 天空的颜色是蓝色的\n3. 所以答案是蓝色",
+                    "output": "blue",
+                },
+                "Question: What is the color of the sky?": {
+                    "reasoning": "让我们一步一步思考。\n1. 这是一个简单的问题\n2. 天空的颜色是蓝色的\n3. 所以答案是蓝色",
+                    "output": "blue",
+                },
+                "Question: What does the fox say?": {
+                    "reasoning": "让我们听听狐狸的声音。\n1. 这是一个有趣的问题\n2. 根据流行歌曲\n3. 狐狸说 Ring-ding-ding-ding-dingeringeding!",
+                    "output": "Ring-ding-ding-ding-dingeringeding!",
+                },
+                # For COPRO optimization process
+                "basic_instruction": {
+                    "proposed_instruction": "Given the input question, think step by step to provide a clear and accurate answer.",
+                    "proposed_prefix_for_output_field": "Let's solve this step by step:",
+                },
+                # For COPRO's GenerateInstructionGivenAttempts
+                "attempted_instructions": {
+                    "proposed_instruction": "Given the input question, analyze it carefully and provide a detailed answer.",
+                    "proposed_prefix_for_output_field": "Let's analyze this:",
+                },
+            }
+        )
+    )
+
+    optimizer = COPRO(metric=simple_metric, breadth=2, depth=1, init_temperature=1.4)
+    student = SimpleModule("input -> output")  # Using string format signature
+
+    # Compile student model with complex evaluation output enabled
+    eval_kwargs = {"num_threads": 1, "display_progress": False, "return_outputs": True, "return_all_scores": True}
+
+    # This call would fail before the fix
+    optimized_student = optimizer.compile(student, trainset=trainset, eval_kwargs=eval_kwargs)
+
+    # Verify optimization completed successfully
+    assert hasattr(optimized_student, "total_calls"), "Optimization should complete and record total calls"
+
+    # Make prediction with optimized model
+    test_input = "What is the color of the sky?"
+    prediction = optimized_student(input=test_input)
+    assert isinstance(optimized_student.candidate_programs[0]["score"][0], (int, float))
+    # Verify optimized model works properly
+    assert hasattr(prediction, "output"), "Optimized model should generate predictions normally"
+    assert prediction.output == "blue", "Prediction should be 'blue'"
+    assert hasattr(prediction, "reasoning"), "Prediction should include reasoning process"

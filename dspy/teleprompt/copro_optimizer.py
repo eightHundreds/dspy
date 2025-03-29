@@ -76,6 +76,29 @@ class COPRO(Teleprompter):
         self.prompt_model = prompt_model
         self.track_stats = track_stats
 
+    def _extract_score(self, score_obj):
+        """Extract numerical score from score object.
+
+        Args:
+            score_obj: Score object, can be a number or complex object
+
+        Returns:
+            float: Extracted numerical score
+        """
+        if isinstance(score_obj, (int, float)):
+            return float(score_obj)
+
+        # If tuple/list, first element is total score
+        if isinstance(score_obj, (tuple, list)) and len(score_obj) > 0:
+            return float(score_obj[0])
+
+        # If Prediction object, try to get score attribute
+        if hasattr(score_obj, "score"):
+            return float(score_obj.score)
+
+        # If none of above, return 0 as default score
+        return 0.0
+
     def _check_candidates_equal(self, candidate1, candidate2):
         for p1, p2 in zip(candidate1["program"].predictors(), candidate2["program"].predictors()):
             if self._get_signature(p1).instructions != self._get_signature(p2).instructions:
@@ -196,9 +219,7 @@ class COPRO(Teleprompter):
                 if len(module.predictors()) > 1:
                     # Unless our program has multiple predictors, in which case we need to reevaluate all prompts with
                     # the new prompt(s) for the other predictor(s).
-                    candidates_ = all_candidates[
-                        id(p_old)
-                    ]
+                    candidates_ = all_candidates[id(p_old)]
 
                 # For each candidate
                 for c_i, c in enumerate(candidates_):
@@ -233,7 +254,9 @@ class COPRO(Teleprompter):
                     replace_entry = True
                     logger.debug(f"(instruction, prefix) {(instruction, prefix)}")
                     if (instruction, prefix) in evaluated_candidates[id(p_old)]:
-                        if evaluated_candidates[id(p_old)][(instruction, prefix)]["score"] >= score:
+                        if self._extract_score(
+                            evaluated_candidates[id(p_old)][(instruction, prefix)]["score"]
+                        ) >= self._extract_score(score):
                             replace_entry = False
 
                     if replace_entry:
@@ -247,7 +270,7 @@ class COPRO(Teleprompter):
                         }
 
                     if len(candidates_) - self.breadth <= c_i:
-                        latest_scores.append(score)
+                        latest_scores.append(self._extract_score(score))
 
                 if self.track_stats:
                     results_latest[id(p_old)]["depth"].append(d)
@@ -258,7 +281,10 @@ class COPRO(Teleprompter):
 
                 # Now that we've evaluated the candidates, set this predictor to the best performing version
                 # to ensure the next round of scores reflect the best possible version
-                best_candidate = max(evaluated_candidates[id(p_old)].values(), key=lambda candidate: candidate["score"])
+                best_candidate = max(
+                    evaluated_candidates[id(p_old)].values(),
+                    key=lambda candidate: self._extract_score(candidate["score"]),
+                )
                 *_, last_key = self._get_signature(p_old).fields.keys()
                 updated_signature = (
                     self._get_signature(p_new)
@@ -288,10 +314,10 @@ class COPRO(Teleprompter):
                 best_predictors = list(evaluated_candidates[id(p_base)].values())
 
                 # best_predictors = evaluated_candidates[id(p_base)].values()[:]
-                best_predictors.sort(key=lambda x: x["score"], reverse=True)
+                best_predictors.sort(key=lambda x: self._extract_score(x["score"]), reverse=True)
 
                 if self.track_stats:
-                    scores = [x["score"] for x in best_predictors][:10]
+                    scores = [self._extract_score(x["score"]) for x in best_predictors][:10]
                     results_best[id(p_base)]["depth"].append(d)
                     results_best[id(p_base)]["max"].append(max(scores))
                     results_best[id(p_base)]["average"].append(sum(scores) / len(scores))
@@ -320,9 +346,7 @@ class COPRO(Teleprompter):
                     )(attempted_instructions=attempts)
 
                 if self.prompt_model:
-                    logger.debug(
-                        f"(self.prompt_model.inspect_history(n=1)) {self.prompt_model.inspect_history(n=1)}"
-                    )
+                    logger.debug(f"(self.prompt_model.inspect_history(n=1)) {self.prompt_model.inspect_history(n=1)}")
                 # Get candidates for each predictor
                 new_candidates[id(p_base)] = instr.completions
                 all_candidates[id(p_base)].proposed_instruction.extend(instr.completions.proposed_instruction)
@@ -340,16 +364,16 @@ class COPRO(Teleprompter):
 
             if self.track_stats:
                 best_predictors = list(evaluated_candidates[id(predictor)].values())
-                best_predictors.sort(key=lambda x: x["score"], reverse=True)
+                best_predictors.sort(key=lambda x: self._extract_score(x["score"]), reverse=True)
 
-                scores = [x["score"] for x in best_predictors][:10]
+                scores = [self._extract_score(x["score"]) for x in best_predictors][:10]
                 results_best[id(predictor)]["depth"].append(d)
                 results_best[id(predictor)]["max"].append(max(scores))
                 results_best[id(predictor)]["average"].append(sum(scores) / len(scores))
                 results_best[id(predictor)]["min"].append(min(scores))
                 results_best[id(predictor)]["std"].append(np.std(scores))
 
-        candidates.sort(key=lambda x: x["score"], reverse=True)
+        candidates.sort(key=lambda x: self._extract_score(x["score"]), reverse=True)
 
         candidates = self._drop_duplicates(candidates)
 
