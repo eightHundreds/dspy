@@ -35,24 +35,24 @@ Note that this teleprompter takes in the following parameters:
 
 
 class BasicGenerateInstruction(Signature):
-    """You are an instruction optimizer for large language models. I will give you a ``signature`` of fields (inputs and outputs) in English. Your task is to propose an instruction that will lead a good language model to perform the task well. Don't be afraid to be creative."""
+    """你是一个大语言模型的指令优化器。我会给你一个字段``signature``(包含输入和输出)。你的任务是提出一个指令,这个指令能让一个好的语言模型很好地完成任务。不要害怕发挥创意。"""
 
-    basic_instruction = dspy.InputField(desc="The initial instructions before optimization")
-    proposed_instruction = dspy.OutputField(desc="The improved instructions for the language model")
+    basic_instruction = dspy.InputField(desc="优化前的初始指令")
+    proposed_instruction = dspy.OutputField(desc="为语言模型优化后的指令")
     proposed_prefix_for_output_field = dspy.OutputField(
-        desc="The string at the end of the prompt, which will help the model start solving the task",
+        desc="提示词的结尾部分,用于帮助模型开始解决任务",
     )
 
 
 class GenerateInstructionGivenAttempts(dspy.Signature):
-    """You are an instruction optimizer for large language models. I will give some task instructions I've tried, along with their corresponding validation scores. The instructions are arranged in increasing order based on their scores, where higher scores indicate better quality.
+    """你是一个大语言模型的指令优化器。我会给你一些我尝试过的任务指令,以及它们对应的验证分数。这些指令按照分数递增排序,分数越高表示质量越好。
 
-    Your task is to propose a new instruction that will lead a good language model to perform the task even better. Don't be afraid to be creative."""
+    你的任务是提出一个新的指令,这个指令能让一个好的语言模型表现得更好。不要害怕发挥创意。"""
 
     attempted_instructions = dspy.InputField()
-    proposed_instruction = dspy.OutputField(desc="The improved instructions for the language model")
+    proposed_instruction = dspy.OutputField(desc="为语言模型优化后的指令")
     proposed_prefix_for_output_field = dspy.OutputField(
-        desc="The string at the end of the prompt, which will help the model start solving the task",
+        desc="提示词的结尾部分,用于帮助模型开始解决任务",
     )
 
 
